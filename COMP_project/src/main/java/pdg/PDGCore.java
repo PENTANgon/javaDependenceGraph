@@ -39,11 +39,13 @@ public class PDGCore {
 	 * @throws ParseException the parse exception
 	 * @throws IOException Signals that an I/O exception has occurred.
 	 */
-	public boolean addFile(FileInputStream inArg, @SuppressWarnings("rawtypes") DirectedGraph<GraphNode, RelationshipEdge> hrefGraph, GraphNode previousNode, JTextArea consoleText) throws ParseException, IOException {
+	public boolean addFile(FileInputStream inArg, @SuppressWarnings("rawtypes") DirectedGraph<GraphNode, RelationshipEdge> hrefGraph, GraphNode previousNode, JTextArea consoleText, String encoding) throws ParseException, IOException {
 		CompilationUnit cu;
 		try {
 		// parse the file
-			cu = JavaParser.parse(inArg);
+			cu = JavaParser.parse(inArg,encoding);
+			System.out.println("Parsing finished!");
+			consoleText.setText(consoleText.getText() + "Parsing finished!" + "\n");
 			inArg.close();
 		} catch(Exception e) {
 			consoleText.setText(consoleText.getText() + "Syntatic Error - " + e.getMessage() + "\n");
@@ -52,13 +54,13 @@ public class PDGCore {
 		
 		CodeVisitor cv = new CodeVisitor();
 
-		cv.astPrint(cu);
+		//cv.astPrint(cu);
 		cv.semanticAnalysis(cu, hrefGraph, previousNode, new ArrayList<>());
 		SymbolTable st = cv.st;
 		
 		st.addDependencies(hrefGraph);
 
-		st.printSymbolTable();
+		//st.printSymbolTable();
 		//check for errors
 		if(cv.errorList.size()!=0){
 			cv.printSemanticErrors(consoleText);
@@ -83,7 +85,11 @@ public class PDGCore {
     		GraphNode nextNode = previousNode;
     		ArrayList<Scope> lastScopes = new ArrayList<>(ls);
     			
-    		if(relevant(node)) {
+    		if(relevant(node)) { 
+    			//System.out.println(node.getBeginLine() + " " + node.getClass() + " : " + node.toString());}
+    			//if(previousNode == null) {
+    			//	System.out.println("killmE");
+    			//}
     			ret = st.SemanticNodeCheck(node, hrefGraph, previousNode, lastScopes);
         		if(ret.hasError()) {	
         			errorList.add(ret.getError());
@@ -92,7 +98,6 @@ public class PDGCore {
         			nextNode = ret.getGraphNode();
         		}
     		}
-    		
     		for(Node child: node.getChildrenNodes()){
     			semanticAnalysis(child, hrefGraph, nextNode, lastScopes);
     		}

@@ -13,6 +13,8 @@ public class GraphNode {
     /** The id. */
     private int id;
     
+    private Object data;
+    
     /** The exporting. */
     public static boolean exporting = false;
 
@@ -21,20 +23,27 @@ public class GraphNode {
      *
      * @param id the id
      * @param string the string
+     * @param data the class of node
      */
-    public GraphNode(int id, String string) {
+    public GraphNode(int id, String string, String data) {
         this.info = string;
         this.id = id;
+        this.data = data;
     }
-
+    public String getData() {
+    	return data.toString();
+    }
     /* (non-Javadoc)
      * @see java.lang.Object#toString()
      */
     @Override
     public String toString() {
+    	//System.out.println(this.data);
         if(!exporting)
             return ("[" + this.id + "] " + this.info);
-        return "Line_" + this.id;
+        if(data.toString().equals("Entry"))
+        	return "Entry";
+        return "Line_" + this.id  + "_" + data;
     }
 
     /* (non-Javadoc)

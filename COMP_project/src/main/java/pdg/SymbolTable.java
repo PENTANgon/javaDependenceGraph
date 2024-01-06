@@ -5,14 +5,19 @@ import java.util.StringTokenizer;
 
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.stmt.IfStmt;
+
 import org.jgrapht.DirectedGraph;
 
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-
+import com.github.javaparser.ast.body.VariableDeclaratorId;
 import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.AssignExpr;
 
 import graphStructures.GraphNode;
 import graphStructures.RelationshipEdge;
@@ -35,16 +40,16 @@ class SymbolTable {
     ArrayList<MethodNode> pendingMethodNodes = new ArrayList<>();
     
     /** The last class. */
-    private ClassScope lastClass = null;
+    private ClassScope lastClass = new ClassScope();
     
     /** The last method. */
-    private MethodScope lastMethod = null;
+    private MethodScope lastMethod = new MethodScope();
     
     /** The last loop. */
-    private LoopScope lastLoop = null;
+    private LoopScope lastLoop = new LoopScope();
     
     /** The last scope. */
-    private Scope lastScope = null;
+    private Scope lastScope = new Scope();
     
     /**
      * The Class MethodNode.
@@ -259,6 +264,9 @@ class SymbolTable {
      * @param ls1 the scope array
      */
     private void addLoopScope(LoopScope ls, ArrayList<Scope> ls1){
+    	if(ls.MethodName == null) {
+    		ls.MethodName = "";
+    	}
         scopes.add(ls);
         ls1.add(ls);
         lastLoop = ls;
@@ -303,6 +311,8 @@ class SymbolTable {
      * @param methodScp the method scope
      */
     private void checkPendingMethods(MethodScope methodScp){
+    	if(methodScp.className == null)
+    		return;
         for(int i=0;i<pendingMethodDeclarations.size();i++){
             if(methodScp.className.equals(pendingMethodDeclarations.get(i).methodScope))
                 if(methodScp.Name.equals(pendingMethodDeclarations.get(i).methodName)){
@@ -323,24 +333,28 @@ class SymbolTable {
         MethodScope methodScp = null;
         //find MethodScope
         for (Scope scope : scopes) {
-            if (scope.getClass().equals(MethodScope.class))
+            if (scope.getClass().equals(MethodScope.class)) {
+            	if (((MethodScope) scope).className == null)
+            		 continue;
                 if (((MethodScope) scope).className.equals(method.methodScope))
                     if (((MethodScope) scope).Name.equals(method.methodName))
                         methodScp = ((MethodScope) scope);
+            }
         }
-        if(!((MethodCallExpr)node).getArgs().isEmpty())
-            if(!methodScp.paramTable.isEmpty())
-                if(((MethodCallExpr)node).getArgs().size()!=methodScp.paramTable.size())
-                    return "error:Method call of "+methodScp.Name+" in class "+methodScp.className+" has an invalid number of arguments("+((MethodCallExpr)node).getArgs().size()+" instead of "+methodScp.paramTable.size()+")";
-
-        if(((MethodCallExpr)node).getArgs().isEmpty())
-            if(!methodScp.paramTable.isEmpty())
-                return "error:Method call of "+methodScp.Name+" in class "+methodScp.className+" has an invalid number of arguments(0 instead of "+methodScp.paramTable.size()+")";
-
-        if(methodScp.paramTable.isEmpty())
-            if(!((MethodCallExpr)node).getArgs().isEmpty())
-                return "error:Method call of "+methodScp.Name+" in class "+methodScp.className+" has an invalid number of arguments("+((MethodCallExpr)node).getArgs().size()+" instead of 0)";
-
+        if(methodScp != null) {
+	        if(!((MethodCallExpr)node).getArgs().isEmpty())
+	            if(!methodScp.paramTable.isEmpty())
+	                if(((MethodCallExpr)node).getArgs().size()!=methodScp.paramTable.size())
+	                    return "error:Method call of "+methodScp.Name+" in class "+methodScp.className+" has an invalid number of arguments("+((MethodCallExpr)node).getArgs().size()+" instead of "+methodScp.paramTable.size()+")";
+	
+	        if(((MethodCallExpr)node).getArgs().isEmpty())
+	            if(!methodScp.paramTable.isEmpty())
+	                return "error:Method call of "+methodScp.Name+" in class "+methodScp.className+" has an invalid number of arguments(0 instead of "+methodScp.paramTable.size()+")";
+	
+	        if(methodScp.paramTable.isEmpty())
+	            if(!((MethodCallExpr)node).getArgs().isEmpty())
+	                return "error:Method call of "+methodScp.Name+" in class "+methodScp.className+" has an invalid number of arguments("+((MethodCallExpr)node).getArgs().size()+" instead of 0)";
+	    }
         ArrayList<String> undeclared=new ArrayList<>();
 
         for(Node child: node.getChildrenNodes()){
@@ -349,9 +363,11 @@ class SymbolTable {
                 for (Scope scope : scopes) {
                     if (scope.getClass().equals(LoopScope.class)) {
                         if (((LoopScope) scope).MethodName.equals(callerMethod)) {
+                        	if(((LoopScope) scope).ClassName == null)
+								continue;
                             if (((LoopScope) scope).ClassName.equals(lastClass.Name)) {
                                 if (((LoopScope) scope).localVarTable.containsKey(child.toString()))
-                                    System.out.println("PARENT " + node.getParentNode().toString());
+                                    //System.out.println("PARENT " + node.getParentNode().toString());
                                 varFound = true;
                             }
                         }
@@ -363,7 +379,7 @@ class SymbolTable {
                                 //noinspection UnusedAssignment
                                 varFound = true;
                             else if (((MethodScope) scope).localVarTable.containsKey(child.toString()))
-                                System.out.println("PARENT " + node.getParentNode().toString());
+                                //System.out.println("PARENT " + node.getParentNode().toString());
                             varFound = true;
                         }
                     }
@@ -375,7 +391,7 @@ class SymbolTable {
 
         String returnString = "error:Variables with identifiers:";
         undeclared=assignBinaryExpressionCheck(node);
-        System.out.println(undeclared.toString());
+        //System.out.println(undeclared.toString());
         if(undeclared.size()>0){
             for(int i=0;i<undeclared.size();i++){
                 if(i==0)
@@ -470,7 +486,7 @@ class SymbolTable {
             boolean methodFound=false;
             StringTokenizer stock = new StringTokenizer(node.toString(),"(");
             String methodName=stock.nextToken();
-            System.out.println(methodName);
+            //System.out.println(methodName);
             Method method =new Method(methodName,lastClass.Name);
             if(lastClass.funcTable.containsKey(methodName))
                 methodFound=true;
@@ -525,15 +541,20 @@ class SymbolTable {
         int i = 0;
         int c = 0;
         ArrayList<Variable> repeatedVars = new ArrayList<>();
-
+        //System.out.println(node.toString());
+        
+        //var Name und Typ Zuweisen???
         for(Node child: node.getChildrenNodes()){
-            if(i == 0){
+            if(child.getClass().equals(com.github.javaparser.ast.expr.MarkerAnnotationExpr.class)||child.getClass().equals(com.github.javaparser.ast.expr.SingleMemberAnnotationExpr.class))
+            	continue;
+        	if(i == 0){
                 var.varType = child.toString();
             }
+            //System.out.println("child: " + child.getClass());
             if(child.getClass().equals(com.github.javaparser.ast.body.VariableDeclarator.class))
                 c=0;
             for(Node child2: child.getChildrenNodes()){
-                if(i==1){
+            	if(i==1){
                     if(c == 0){
                         var.varName = child2.toString();
                         c++;
@@ -585,15 +606,18 @@ class SymbolTable {
      * @return true, if successful
      */
     private boolean addField(Node node, Field fld){
-        int i=0,c = 0;
+    	int i=0,c = 0;
         for(Node child: node.getChildrenNodes()){
+        	
             if(i == 0){
                 fld.fieldType = child.toString();
                 i++;
             }
+            // this works on e.g. Primitive Types, because those do NOT have children thus not increasing c.
+            // on imported Types this is problematic for some reason
             if(i==1){
                 for(Node child2: child.getChildrenNodes()){
-                    if(c == 0){
+                    if(c == 0 && child2.getClass().equals(VariableDeclaratorId.class)){
                         fld.fieldName = child2.toString();
                         c++;
                     }
@@ -626,6 +650,8 @@ class SymbolTable {
                     varFound=true;
                 for (Scope scope : scopes) {
                     if (scope.getClass().equals(LoopScope.class)) {
+                    	if(((LoopScope) scope).ClassName == null)
+                    		continue;
                         if (((LoopScope) scope).MethodName.equals(lastMethod.Name)) {
                             if (((LoopScope) scope).ClassName.equals(lastClass.Name)) {
                                 if (((LoopScope) scope).localVarTable.containsKey(child.toString()))
@@ -716,7 +742,6 @@ class SymbolTable {
     ReturnObject SemanticNodeCheck(Node node, @SuppressWarnings("rawtypes") DirectedGraph<GraphNode, RelationshipEdge> hrefGraph, GraphNode previousNode, ArrayList<Scope> ls) {
         GraphNode nodeToSend = null;
         updateScopes(ls);
-
         if(node.getClass().equals(com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class)){
             ClassScope classScp = new ClassScope();
             fillClassScope(node,classScp);
@@ -764,7 +789,7 @@ class SymbolTable {
             ArrayList<String> undeclared;
             String returnString = "error:Variables with identifiers:";
             undeclared=assignBinaryExpressionCheck(node);
-            System.out.println(undeclared.toString());
+            //System.out.println(undeclared.toString());
             if(undeclared.size()>0){
                 for(int i=0;i<undeclared.size();i++){
                     if(i==0)
@@ -794,7 +819,7 @@ class SymbolTable {
             ArrayList<String> undeclared;
             String returnString = "error:Variables with identifiers:";
             undeclared=assignBinaryExpressionCheck(node);
-            System.out.println(undeclared.toString());
+            //System.out.println(undeclared.toString());
             if(undeclared.size()>0){
                 for(int i=0;i<undeclared.size();i++){
                     if(i==0)
@@ -910,7 +935,7 @@ class SymbolTable {
             ArrayList<String> undeclared;
             String returnString = "error:Variables with identifiers:";
             undeclared=assignBinaryExpressionCheck(node);
-            System.out.println(undeclared.toString());
+            //System.out.println(undeclared.toString());
             if(undeclared.size()>0){
                 for(int i=0;i<undeclared.size();i++){
                     if(i==0)
@@ -958,7 +983,7 @@ class SymbolTable {
                         }
                     }
                 }
-                counter++;
+                //counter++;
             }
         }
 
@@ -1013,7 +1038,7 @@ class SymbolTable {
         try{
             hrefGraph.addEdge(graphNode, node, new RelationshipEdge(string));
         } catch (Exception e) {
-            System.out.println("ERROR in graph - " + e.getMessage());
+            //System.out.println("ERROR in graph - " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -1031,21 +1056,66 @@ class SymbolTable {
                                             GraphNode previousNode, boolean loop) {
         GraphNode nodeToSend = null;
         try{
-            GraphNode newNode = new GraphNode(node.getBeginLine(), node.toString());
+        	GraphNode newNode = new GraphNode(node.getBeginLine(), node.toString(), getNodeInfo(node));
             hrefGraph.addVertex(newNode);
-            if(previousNode == null)
+            if(previousNode == null) {
                 nodeToSend = newNode;
-            nodeToSend = newNode;
-            hrefGraph.addEdge(previousNode, newNode);
-
+                //System.out.println("previousNode == null on: " + newNode.toString());
+            }else {
+            	nodeToSend = newNode;
+            	hrefGraph.addEdge(previousNode, newNode);
+            }
             if(loop)
                 hrefGraph.addEdge(newNode, newNode);
         } catch (Exception e) {
-            System.out.println("ERROR in graph - " + e.getMessage());
+            //System.out.println("ERROR in graph - " + e.getMessage());
             e.printStackTrace();
         }
 
         return nodeToSend;
+    }
+    
+    
+    private String getNodeInfo(Node node) {
+    	String info = node.getClass().toString();
+    	info = info.substring(info.toString().lastIndexOf(".") +1);
+    
+    	if(node.getClass().equals(com.github.javaparser.ast.expr.MethodCallExpr.class)){
+    		int numArgs = ((MethodCallExpr) node).getArgs().size();
+    		//name works well for eliminating false detections. might hurt type 3 and type 4 detection(?)
+    		String methodName = ((MethodCallExpr) node).getName();
+    		info += "_" + numArgs + "_" + methodName;
+    	}else if(node.getClass().equals(com.github.javaparser.ast.body.MethodDeclaration.class)){
+    		int numArgs = ((MethodDeclaration)node).getParameters().size();
+    		String type =  ((MethodDeclaration)node).getType().toString();
+    		int startLine = ((MethodDeclaration)node).getBeginLine();
+    		int endLine = ((MethodDeclaration)node).getEndLine();
+    		info += "_" + numArgs + "_" + type + "_" + startLine + "_" + endLine;
+    	}else if(node.getClass().equals(com.github.javaparser.ast.expr.VariableDeclarationExpr.class)) {
+    		String type = ((VariableDeclarationExpr) node).getType().toString();
+    		info += "_" + type;
+    	}else if((node.getClass().equals(com.github.javaparser.ast.stmt.IfStmt.class))) {
+    		if(((IfStmt)node).getCondition().getClass().equals(com.github.javaparser.ast.expr.BinaryExpr.class)){
+    			String operator = ((BinaryExpr)((IfStmt)node).getCondition()).getOperator().toString();
+        		info += "_"  +operator;
+    		}else { 
+    			String condClass = ((IfStmt)node).getCondition().getClass().toString();
+    			info += "_" + condClass;
+    			
+    		}
+    	}else if((node.getClass().equals(com.github.javaparser.ast.expr.BinaryExpr.class))) {
+    		String operator = ((BinaryExpr)node).getOperator().toString();
+    		info += "_" + "\\" +operator;
+    	}else if((node.getClass().equals(com.github.javaparser.ast.body.FieldDeclaration.class))) {
+    		String type = ((FieldDeclaration) node).getType().toString();
+    		info += "_" + type;
+    	}
+  
+    	return makeReadyForDot(info);
+    }
+    
+    private String makeReadyForDot(String s) {
+    	return s.replace(".","").replace("[", "").replace("]", "").replace("<", "").replace(">", "").replace(" ", "").replace(",", "").replace("?", "").replace("$", "Dollar").replace("!", "EXC").replace("//", "").replace("\n", "");
     }
 
     /**
@@ -1066,3 +1136,5 @@ class SymbolTable {
     }
 
 }
+
+    

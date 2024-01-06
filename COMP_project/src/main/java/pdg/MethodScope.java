@@ -16,7 +16,7 @@ class MethodScope extends Scope{
 	String Type;
 	
 	/** The Name. */
-	String Name;
+	String Name = "";
 	
 	/** The method node. */
 	Node methodNode;

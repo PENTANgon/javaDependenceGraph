@@ -279,9 +279,9 @@ public class mainframe extends JFrame {
     private void runAnalysisAndMakeGraph() {
         try {
             createGraph();
-            GraphNode gn = new GraphNode(0, "Entry");
+            GraphNode gn = new GraphNode(0, "Entry", "Entry");
             hrefGraph.addVertex(gn);
-            if (astPrinter.addFile(new FileInputStream(selectedFile), hrefGraph, gn, consoleText))
+            if (astPrinter.addFile(new FileInputStream(selectedFile), hrefGraph, gn, consoleText, "UTF-8"))
                 updateGraph();
         } catch (ParseException | IOException e1) {
             e1.printStackTrace();
